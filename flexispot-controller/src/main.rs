@@ -35,18 +35,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("UART send END");
 
     println!("read");
-    let mut buf = Vec::with_capacity(512);
+    let mut buf = vec![0; 512];
     // current height: begins with `0x9b`, ends with `0x9d`
 
     loop {
         let len = query_processor.read(&mut buf)?;
+        println!("Read {len} bytes");
         if len > 0 {
             for x in &buf[..len] {
                 print!("0x{x:0X}");
             }
             println!();
         }
-        thread::sleep(Duration::from_secs(10));
+        thread::sleep(Duration::from_secs(5));
         executor.execute(FlexispotCommand::Wakeup)?;
         executor.sleep(Duration::from_millis(500));
     }
