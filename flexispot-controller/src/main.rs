@@ -1,45 +1,54 @@
+mod flexispot;
+
+use std::borrow::BorrowMut;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use rppal::system::DeviceInfo;
-use rppal::uart::Uart;
+use rppal::uart::{Parity, Uart};
 
-const COMMAND_WAKEUP: &[u8] = &[0x9b, 0x06, 0x02, 0x00, 0x00, 0x6c, 0xa1, 0x9d];
-const COMMAND_UP: &[u8] = &[0x9b, 0x06, 0x02, 0x01, 0x00, 0xfc, 0xa0, 0x9d];
+use crate::flexispot::command::{FlexispotCommand, FlexispotCommandExecutor};
+use crate::flexispot::query::FlexispotQueryProcessor;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", DeviceInfo::new()?.model());
 
     println!("Init UART");
-    let mut uart = Uart::new(9600, rppal::uart::Parity::None, 8, 1)?;
+    let mut uart = Uart::new(9600, Parity::None, 8, 1)?;
     uart.set_read_mode(1, Duration::from_secs(1))?;
-    uart.set_write_mode(true)?;
+    uart.borrow_mut().set_write_mode(true)?;
+
+    let uart = Arc::new(Mutex::new(uart));
+    let executor = FlexispotCommandExecutor::new(Arc::clone(&uart));
+    let query_processor = FlexispotQueryProcessor::new(Arc::clone(&uart));
+
     println!("DONE");
 
     println!("UART send BEGIN");
-    uart.write(&COMMAND_WAKEUP)?;
+    executor.execute(FlexispotCommand::Wakeup)?;
     println!("UART send END");
-    thread::sleep(Duration::from_millis(500)); // friendly sleep
+    executor.sleep(Duration::from_millis(500)); // friendly sleep
     println!("UART send BEGIN");
-    uart.write(&COMMAND_UP)?;
+    executor.execute(FlexispotCommand::Preset4)?;
     println!("UART send END");
 
     println!("read");
-    let mut read = vec![0u8; 16];
+    let mut buf = vec![0; 512];
     // current height: begins with `0x9b`, ends with `0x9d`
 
     loop {
-        let len = uart.read(&mut read)?;
+        let len = query_processor.read(&mut buf)?;
+        println!("Read {len} bytes");
         if len > 0 {
-            for x in &read[..len] {
+            for x in &buf[..len] {
                 print!("0x{x:0X}");
             }
             println!();
         }
-        thread::sleep(Duration::from_secs(10));
-        uart.write(&COMMAND_WAKEUP)?;
-        thread::sleep(Duration::from_millis(500)); // friendly sleep
-        uart.write(&COMMAND_UP)?;
+        thread::sleep(Duration::from_secs(5));
+        executor.execute(FlexispotCommand::Wakeup)?;
+        executor.sleep(Duration::from_millis(500));
     }
 }
