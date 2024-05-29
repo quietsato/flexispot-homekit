@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 itertools = "0.13.0"
 rppal = "0.18.0"
+rumqttc = "0.24.0"
