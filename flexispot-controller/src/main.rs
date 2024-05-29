@@ -3,9 +3,9 @@ mod flexispot;
 use std::borrow::BorrowMut;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 
+use flexispot::query::FlexispotQueryResult;
 use rppal::system::DeviceInfo;
 use rppal::uart::{Parity, Uart};
 
@@ -36,18 +36,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("read");
     let mut buf = vec![0; 512];
-    // current height: begins with `0x9b`, ends with `0x9d`
 
     loop {
         let len = query_processor.read(&mut buf)?;
         println!("Read {len} bytes");
         if len > 0 {
-            for x in &buf[..len] {
-                print!("0x{x:0X}");
-            }
-            println!();
+            let res = FlexispotQueryResult::new(&buf[..len]).parse();
+            println!("{res:?}");
         }
-        thread::sleep(Duration::from_secs(5));
+        std::thread::sleep(Duration::from_secs(5));
         executor.execute(FlexispotCommand::Wakeup)?;
         executor.sleep(Duration::from_millis(500));
     }
