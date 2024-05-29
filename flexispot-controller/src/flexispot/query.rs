@@ -1,3 +1,4 @@
+use itertools::*;
 use std::{
     borrow::BorrowMut,
     error::Error,
@@ -5,8 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use itertools::*;
-use rppal::uart::Queue;
+use constant::{DATA_PREFIX, DATA_SUFFIX};
 
 #[rustfmt::skip]
 mod constant {
@@ -44,8 +44,6 @@ mod constant {
 pub enum FlexispotQueryError {
     DeviceIsSleeped,
     InvalidDigitByte(u8),
-    InvalidQueryResult(String),
-    Unknown(String),
 }
 impl Display for FlexispotQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -60,7 +58,7 @@ pub struct FlexispotQueryResult(Vec<Vec<u8>>);
 impl FlexispotQueryResult {
     pub fn new(bytes_with_prefix_and_suffix: &[u8]) -> Self {
         let bytes_split = bytes_with_prefix_and_suffix
-            .split(|&b| b == 0x9b || b == 0x9d)
+            .split(|&b| b == DATA_PREFIX || b == DATA_SUFFIX)
             .filter(|bs| !bs.is_empty())
             .map(|bs| bs.to_vec())
             .collect_vec();
@@ -69,7 +67,7 @@ impl FlexispotQueryResult {
     pub fn parse(&self) -> Vec<FlexispotPacket> {
         self.0
             .iter()
-            .map(|bytes| FlexispotPacket::from_bytes_without_sep(&bytes))
+            .map(|bytes| FlexispotPacket::from_bytes_without_sep(bytes))
             .collect_vec()
     }
 }
@@ -122,11 +120,8 @@ impl FlexispotCurrentHeight {
         }
         Ok(Self(decoded))
     }
-    pub fn to_u32(&self) -> u32 {
-        return self.0.max(0.0) as u32;
-    }
     pub fn to_f32(&self) -> f32 {
-        return self.0;
+        self.0
     }
 }
 
@@ -138,14 +133,6 @@ pub struct FlexispotQueryProcessor {
 impl FlexispotQueryProcessor {
     pub fn new(uart: Arc<Mutex<rppal::uart::Uart>>) -> Self {
         Self { uart }
-    }
-    pub fn flush(&self) -> Result<(), String> {
-        self.uart
-            .lock()
-            .unwrap()
-            .borrow_mut()
-            .flush(Queue::Input)
-            .map_err(|e| e.to_string())
     }
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, String> {
         let len = self

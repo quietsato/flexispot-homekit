@@ -5,17 +5,17 @@ use log::info;
 use crate::flexispot::command::{FlexispotCommand, FlexispotCommandExecutor, FlexispotPreset};
 use crate::flexispot::query::{FlexispotPacket, FlexispotQueryProcessor, FlexispotQueryResult};
 
-pub trait FlexispotMqttAdaptor {
+pub trait FlexispotMqttAdapter {
     fn get_desk_height(&self) -> Option<f32>;
     fn wakeup(&self);
     fn friendly_sleep(&self);
-    fn call_profile(&self, preset: &FlexispotPreset);
+    fn call_preset(&self, preset: &FlexispotPreset);
 }
 
 #[derive(Debug, Default)]
-pub struct FlexispotMqttAdaptorMock;
+pub struct FlexispotMqttAdapterMock;
 
-impl FlexispotMqttAdaptor for FlexispotMqttAdaptorMock {
+impl FlexispotMqttAdapter for FlexispotMqttAdapterMock {
     fn get_desk_height(&self) -> Option<f32> {
         None
     }
@@ -24,18 +24,18 @@ impl FlexispotMqttAdaptor for FlexispotMqttAdaptorMock {
 
     fn friendly_sleep(&self) {}
 
-    fn call_profile(&self, preset: &FlexispotPreset) {
+    fn call_preset(&self, preset: &FlexispotPreset) {
         info!("called preset {preset:?}");
     }
 }
 
-pub struct FlexispotMqttAdaptorImpl {
+pub struct FlexispotMqttAdapterImpl {
     command_executor: FlexispotCommandExecutor,
     query_processor: FlexispotQueryProcessor,
     sleep_duration: Duration,
 }
 
-impl FlexispotMqttAdaptorImpl {
+impl FlexispotMqttAdapterImpl {
     pub fn new(
         command_executor: FlexispotCommandExecutor,
         query_processor: FlexispotQueryProcessor,
@@ -49,9 +49,9 @@ impl FlexispotMqttAdaptorImpl {
     }
 }
 
-impl FlexispotMqttAdaptor for FlexispotMqttAdaptorImpl {
+impl FlexispotMqttAdapter for FlexispotMqttAdapterImpl {
     fn get_desk_height(&self) -> Option<f32> {
-        let mut buf = vec![];
+        let mut buf = vec![0; 512];
         self.query_processor.read(&mut buf).unwrap();
         let packets = FlexispotQueryResult::new(&buf).parse();
         packets
@@ -75,7 +75,7 @@ impl FlexispotMqttAdaptor for FlexispotMqttAdaptorImpl {
         self.command_executor.sleep(self.sleep_duration);
     }
 
-    fn call_profile(&self, preset: &FlexispotPreset) {
+    fn call_preset(&self, preset: &FlexispotPreset) {
         let command = FlexispotCommand::from(preset);
         self.command_executor.execute(command).unwrap();
     }

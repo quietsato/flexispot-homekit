@@ -19,6 +19,25 @@ mod constants {
 }
 
 #[derive(Debug)]
+pub enum FlexispotPreset {
+    Preset1,
+    Preset2,
+    Preset3,
+    Preset4,
+}
+
+impl From<&FlexispotPreset> for FlexispotCommand {
+    fn from(value: &FlexispotPreset) -> Self {
+        match value {
+            FlexispotPreset::Preset1 => Self::Preset1,
+            FlexispotPreset::Preset2 => Self::Preset2,
+            FlexispotPreset::Preset3 => Self::Preset3,
+            FlexispotPreset::Preset4 => Self::Preset4,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum FlexispotCommand {
     Wakeup,
     Up,
@@ -73,7 +92,7 @@ impl FlexispotCommandExecutor {
             .lock()
             .unwrap()
             .borrow_mut()
-            .write(&command.to_u8_array())
+            .write(command.to_u8_array())
             .map_err(|e| FlexispotCommandError(e.to_string()))?;
         Ok(FlexispotCommandResponse {})
     }
